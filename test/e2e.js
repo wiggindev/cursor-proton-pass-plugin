@@ -63,7 +63,7 @@ async function t(name, fn) { try { await fn(); console.log('PASS', name); pass++
     assert.equal(r.data.total, 6); assert.equal(r.data.items.length, 2);
     const t2 = await s.call('search_items', { query: 'custom' }); assert.equal(t2.data.items[0].title, 'Deploy Targets');
     assert.ok((await s.call('search_items', { limit: 0 })).isError); });
-  const SEEDS = ['gh-S3CRET-pw', 'ghp_TOKENVALUE123', 'andrew', 'a@example.com', 'github.com', 'db-pass-XYZ', 'admin',
+  const SEEDS = ['gh-S3CRET-pw', 'ghp_TOKENVALUE123', 'jdoe', 'a@example.com', 'github.com', 'db-pass-XYZ', 'admin',
                  'stg-pw-SEED', 'prd-pw-SEED', 'stg.host.SEED', 'deploy-note-SEED', 'wifi-pw-777', 'home'];
   await t('describe_item by id_uri: names only, per-field uris, no values', async () => {
     const r = await s.call('describe_item', { id_uri: 'pass://shWORK1/itGH' }); assert.ok(!r.isError, r.text);

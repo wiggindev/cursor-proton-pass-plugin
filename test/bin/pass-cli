@@ -28,7 +28,7 @@ const VAULTS = [{ name: 'Work', share_id: 'shWORK1' }, { name: 'Personal', share
 const ITEMS = {
   shWORK1: [
     { id: 'itGH', share_id: 'shWORK1', title: 'GitHub', type: 'login',
-      content: { username: 'andrew', email: 'a@example.com', password: 'gh-S3CRET-pw', urls: ['https://github.com'], totp_uri: '' ,
+      content: { username: 'jdoe', email: 'a@example.com', password: 'gh-S3CRET-pw', urls: ['https://github.com'], totp_uri: '' ,
                  extra_fields: [{ name: 'api_token', type: 'hidden', value: 'ghp_TOKENVALUE123' }] } },
     { id: 'itDB', share_id: 'shWORK1', title: 'Prod DB', type: 'login', content: { username: 'admin', password: 'db-pass-XYZ', note: 'prod' } },
     { id: 'itDP', share_id: 'shWORK1', title: 'Deploy Targets', type: 'custom',

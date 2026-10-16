@@ -62,8 +62,8 @@ function resolveSessionDir() {
 let SESSION_DIR = null, SESSION_DIR_ERR = null;
 try { SESSION_DIR = resolveSessionDir(); } catch (e) { SESSION_DIR_ERR = e.message; }
 
-const SETUP_HELP = `Proton Pass plugin is not configured. Andrew must set it up (do NOT ask for his Proton password):
-  1. pass-cli login                                   # as himself, in his own terminal
+const SETUP_HELP = `Proton Pass plugin is not configured. the user must set it up (do NOT ask for their Proton password):
+  1. pass-cli login                                   # as themselves, in their own terminal
   2. pass-cli agent create cursor-agent --expiration 1m --vault "<Vault>"
   3. Save the printed token (pst_...::...) to ~/.config/proton-pass-agent/token (chmod 600), or set ${TOKEN_VAR}; then reload the plugin.
 See the plugin README.`;
@@ -116,7 +116,7 @@ async function agentInfo() {
 async function login() {
   const r = await rawCli(['login'], baseEnv({ [PAT_VAR]: TOKEN })); // token only ever reaches this one invocation
   if (r.missing) throw missingCli();
-  if (r.code !== 0) throw new ToolError(`Agent login with ${TOKEN_VAR} failed (token invalid, expired or revoked?). Ask Andrew to run \`pass-cli agent renew <name> --expiration 1m\` and update the plugin variable. CLI said: ${truncate(r.stderr.trim(), 500)}`);
+  if (r.code !== 0) throw new ToolError(`Agent login with ${TOKEN_VAR} failed (token invalid, expired or revoked?). Ask the user to run \`pass-cli agent renew <name> --expiration 1m\` and update the plugin variable. CLI said: ${truncate(r.stderr.trim(), 500)}`);
 }
 // Ensure an isolated, verified AGENT session. force=true after an auth failure.
 async function ensureSession(force = false) {
@@ -153,7 +153,7 @@ async function cli(args, { extraEnv = {}, timeout } = {}) {
 function authOrFail(r, what) {
   if (r.missing) throw missingCli();
   if (r.code !== 0 && NOT_LOGGED_IN.test(r.stderr + '\n' + r.stdout))
-    throw new ToolError('Proton Pass agent session is not logged in even after automatic re-login. Ask Andrew to check the agent token (`pass-cli agent list`, `pass-cli agent renew`).');
+    throw new ToolError('Proton Pass agent session is not logged in even after automatic re-login. Ask the user to check the agent token (`pass-cli agent list`, `pass-cli agent renew`).');
   if (r.code !== 0) throw new ToolError(`${what} failed (exit ${r.code}): ${truncate(r.stderr.trim() || redact(r.stdout).trim(), 2000)}`);
 }
 
