@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "proton-pass",
+  "version": "0.1.0",
+  "description": "Audited Proton Pass access for AI agents via the official pass-cli and a scoped agent token (never your personal session). Search items, list field names, and run commands with pass:// secrets resolved only inside the child process. Every call records a mandatory reason, which you can review with `pass-cli agent monitor`.",
+  "author": {
+    "name": "Andrew Wiggin"
+  },
+  "license": "MIT",
+  "keywords": [
+    "proton",
+    "proton-pass",
+    "pass-cli",
+    "secrets",
+    "password-manager",
+    "mcp",
+    "agent-token",
+    "audit"
+  ],
+  "extensions": {
+    "com.cursor": {
+      "variables": {
+        "PROTON_PASS_AGENT_TOKEN": {
+          "description": "Proton Pass agent token from `pass-cli agent create <name> --expiration 1m --vault <Vault>` (pst_...::...). Never your account password.",
+          "secret": true,
+          "required": true
+        },
+        "PROTON_PASS_AGENT_TOKEN_FILE": {
+          "description": "Optional path to a 0600 file containing the agent token. Default: ~/.config/proton-pass-agent/token.",
+          "secret": false,
+          "required": false
+        }
+      }
+    }
+  }
+}

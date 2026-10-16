@@ -1,0 +1,17 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "proton-pass": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "./server/index.js"
+      ],
+      "cwd": "${PLUGIN_ROOT}",
+      "env": {
+        "PROTON_PASS_AGENT_TOKEN": "${PROTON_PASS_AGENT_TOKEN}",
+        "PROTON_PASS_PLUGIN_SESSION_DIR": "${PLUGIN_DATA}/pass-agent-session"
+      }
+    }
+  }
+}

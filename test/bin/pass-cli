@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+// STUB of Proton Pass CLI for tests only. Mimics documented commands; JSON shape is a guess (not documented).
+'use strict';
+const { spawnSync } = require('node:child_process');
+const a = process.argv.slice(2);
+const fail = (m, c = 1) => { process.stderr.write(m + '\n'); process.exit(c); };
+const fs = require('node:fs'); const path = require('node:path');
+// Invocation log so tests can assert env handling (never logs values of secrets, only presence/reason).
+if (process.env.STUB_LOG) fs.appendFileSync(process.env.STUB_LOG, JSON.stringify({ args: a.slice(0, 2), reason: process.env.PROTON_PASS_AGENT_REASON ?? null,
+  token: 'PROTON_PASS_PERSONAL_ACCESS_TOKEN' in process.env, agentTokenVar: 'PROTON_PASS_AGENT_TOKEN' in process.env,
+  session_dir: process.env.PROTON_PASS_SESSION_DIR ?? null }) + '\n');
+// Session handling: the stub REQUIRES an explicit session dir so tests prove isolation.
+const SD = process.env.PROTON_PASS_SESSION_DIR; if (!SD) fail('stub: PROTON_PASS_SESSION_DIR not set (would use personal session!)');
+const SF = path.join(SD, 'session.json');
+const VALID = process.env.STUB_VALID_TOKEN || 'pst_testtoken::TOKENKEY';
+if (a[0] === 'login') {
+  const tok = process.env.PROTON_PASS_PERSONAL_ACCESS_TOKEN || (a[1] === '--personal-access-token' ? a[2] : null);
+  if (!tok) fail('Error: interactive login not supported in stub');
+  if (tok !== VALID) fail(`Error: Invalid personal access token ${tok}`);
+  fs.writeFileSync(SF, JSON.stringify({ name: process.env.STUB_PLAIN_PAT === '1' ? 'ci-token' : '[Agent] cursor-agent' }));
+  console.log('Logged in.'); process.exit(0);
+}
+if (!fs.existsSync(SF)) fail('Error: You are not logged in. Please run `pass-cli login` first.');
+const SESS = JSON.parse(fs.readFileSync(SF, 'utf8'));
+if (a[0] === 'info') { console.log(JSON.stringify({ release_track: 'stable', id: 'N/A', personal_access_token_name: SESS.name, session_has_lock: false }, null, 2)); process.exit(0); }
+const needReason = () => { const r = process.env.PROTON_PASS_AGENT_REASON; if (!r || r.length > 300) fail('Error: PROTON_PASS_AGENT_REASON is required for agent sessions (1-300 chars)'); };
+const VAULTS = [{ name: 'Work', share_id: 'shWORK1' }, { name: 'Personal', share_id: 'shPERS2' }, { name: 'Dev', share_id: 'shMUSE3' }];
+const ITEMS = {
+  shWORK1: [
+    { id: 'itGH', share_id: 'shWORK1', title: 'GitHub', type: 'login',
+      content: { username: 'andrew', email: 'a@example.com', password: 'gh-S3CRET-pw', urls: ['https://github.com'], totp_uri: '' ,
+                 extra_fields: [{ name: 'api_token', type: 'hidden', value: 'ghp_TOKENVALUE123' }] } },
+    { id: 'itDB', share_id: 'shWORK1', title: 'Prod DB', type: 'login', content: { username: 'admin', password: 'db-pass-XYZ', note: 'prod' } },
+    { id: 'itDP', share_id: 'shWORK1', title: 'Deploy Targets', type: 'custom',
+      content: { note: 'deploy-note-SEED', sections: [
+        { section_name: 'Staging', fields: [{ name: 'password', type: 'hidden', value: 'stg-pw-SEED' }, { name: 'host', type: 'text', value: 'stg.host.SEED' }] },
+        { section_name: 'Production', fields: [{ name: 'password', type: 'hidden', value: 'prd-pw-SEED' }] } ] } } ],
+  shMUSE3: [
+    { id: 'itBF', share_id: 'shMUSE3', title: 'Bifrost Virtual Key', type: 'custom',
+      content: { sections: [{ section_name: '', fields: [{ name: 'Secret', type: 'hidden', value: 'bifrost-SEED-key' }] }] } },
+    { id: 'itCI', share_id: 'shMUSE3', title: 'CI/CD Token', type: 'login', content: { password: 'cicd-SEED-pw' } } ],
+  shPERS2: [ { id: 'itWF', share_id: 'shPERS2', title: 'Home WiFi', type: 'wifi', content: { ssid: 'home', password: 'wifi-pw-777' } } ],
+};
+const vByAny = (x) => VAULTS.find((v) => v.name === x || v.share_id === x);
+function resolve(uri) {
+  const m = /^pass:\/\/([^/]+)\/([^/]+)\/([^/?]+)$/.exec(uri); if (!m) fail(`Error: Invalid reference format: ${uri}`);
+  const v = vByAny(m[1]); if (!v) fail(`Error: Vault not found: ${m[1]}`);
+  const it = ITEMS[v.share_id].find((i) => i.title === m[2] || i.id === m[2]); if (!it) fail(`Error: Item not found: ${m[2]}`);
+  const c = it.content; let val = c[m[3]] ?? (c.extra_fields || []).find((f) => f.name === m[3])?.value
+    ?? (c.sections || []).flatMap((sec) => sec.fields.map((f) => ({ ...f, q: sec.section_name ? `${sec.section_name}.${f.name}` : f.name }))).find((f) => f.q === m[3] || f.name === m[3])?.value;
+  if (val == null) fail(`Error: Field not found: ${m[3]}`); return String(val);
+}
+const opt = (n) => { const i = a.indexOf(n); return i >= 0 ? a[i + 1] : undefined; };
+const json = a.includes('--output') && opt('--output') === 'json';
+if (a[0] === 'vault' && a[1] === 'list') {
+  if (!json) { VAULTS.forEach((v) => console.log(`${v.name} (${v.share_id})`)); process.exit(0); }
+  console.log(JSON.stringify({ vaults: VAULTS })); process.exit(0);
+}
+if (a[0] === 'item' && a[1] === 'list') {
+  const v = vByAny(opt('--share-id') || opt('--vault-name') || a[2]); if (!v) fail('Error: Vault not found');
+  const meta = ITEMS[v.share_id].map((i) => ({ id: i.id, share_id: i.share_id, vault_id: 'vid_' + i.share_id, state: 'Active', flags: [],
+    create_time: '2026-01-01T00:00:00Z', modify_time: '2026-10-01T12:00:00Z', title: i.title, item_type: i.type }));
+  console.log(JSON.stringify({ items: meta })); process.exit(0);
+}
+if (a[0] === 'item' && ['view', 'get', 'show', 'read'].includes(a[1])) needReason();
+if (a[0] === 'item' && ['view', 'get', 'show', 'read'].includes(a[1])) {
+  const uri = a.find((x) => x.startsWith('pass://'));
+  if (uri && uri.split('/').length === 5) { process.stdout.write(resolve(uri) + '\n'); process.exit(0); }
+  // whole item: --share-id/--vault-name + --item-id/--item-title (or 2-segment uri)
+  const v = vByAny(opt('--share-id') || opt('--vault-name')); if (!v) fail('Error: Vault not found');
+  const key = opt('--item-id') || opt('--item-title');
+  const it = ITEMS[v.share_id].find((i) => i.id === key || i.title === key); if (!it) fail('Error: Item not found');
+  const c = it.content; const T = it.type[0].toUpperCase() + it.type.slice(1);
+  const inner = Object.fromEntries(Object.entries(c).filter(([k]) => !['note', 'extra_fields', 'sections'].includes(k)));
+  if (!json) { console.log(`Title: ${it.title}`); process.exit(0); }
+  console.log(JSON.stringify({ item: { id: it.id, share_id: it.share_id, vault_id: 'vid_' + it.share_id, state: 'Active', flags: [],
+    create_time: '2026-01-01T00:00:00Z', modify_time: '2026-10-01T12:00:00Z',
+    content: { title: it.title, note: c.note || '', item_uuid: 'uuid-' + it.id,
+      content: { [T]: { ...inner, sections: c.sections || [] } }, extra_fields: c.extra_fields || [] } } }));
+  process.exit(0);
+}
+if (a[0] === 'run') {
+  const sep = a.indexOf('--'); if (sep < 0) fail('Error: missing -- COMMAND');
+  const masking = !a.slice(0, sep).includes('--no-masking');
+  needReason(); const env = { ...process.env }; const secrets = [];
+  for (const [k, v] of Object.entries(env)) if (typeof v === 'string' && v.includes('pass://'))
+    env[k] = v.replace(/pass:\/\/[^\s/]+\/[^/]+\/[^\s/?@]+/g, (u) => { const s = resolve(u); secrets.push(s); return s; });
+  const r = spawnSync(a[sep + 1], a.slice(sep + 2), { env, encoding: 'utf8' });
+  if (r.error) fail(`Error: command not found: ${a[sep + 1]}`, 127);
+  const mask = (s) => masking ? secrets.reduce((t, x) => t.split(x).join('<concealed by Proton Pass>'), s) : s;
+  process.stdout.write(mask(r.stdout)); process.stderr.write(mask(r.stderr)); process.exit(r.status ?? 1);
+}
+fail(`Error: unrecognized command: ${a.join(' ')}`, 2);
